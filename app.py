@@ -6,7 +6,6 @@ import numpy as np
 from scipy.stats import norm
 import dash_bootstrap_components as dbc
 
-
 # Black-Scholes Model Functions
 def blackScholes(S, K, r, T, sigma, type="c"):
     d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
@@ -43,15 +42,6 @@ def optionVega(S, K, r, T, sigma):
     d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
     vega = S * np.sqrt(T) * norm.pdf(d1) * 0.01
     return vega
-
-def optionRho(S, K, r, T, sigma, type="c"):
-    d1 = (np.log(S / K) + (r + sigma**2 / 2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
-    if type == "c":
-        rho = 0.01 * K * T * np.exp(-r * T) * norm.cdf(d2)
-    elif type == "p":
-        rho = 0.01 * -K * T * np.exp(-r * T) * norm.cdf(-d2)
-    return rho
 
 # Binomial Options Pricing Model
 def binomial_option_pricing(S, K, r, T, sigma, N, type="c"):
@@ -187,7 +177,13 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col(dbc.Label('Max Volatility (%)'), width=12),
                 dbc.Col(dcc.Input(id='max-vol', value=30, type='number', step=0.01, className='form-control'), width=12),
-            ])
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='delta-graph')),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='theta-graph')),
+            ]),
         ], md=5),
         
         # Right Column: Outputs
@@ -211,6 +207,12 @@ app.layout = dbc.Container([
             ]),
             dbc.Row([
                 dbc.Col(dcc.Graph(id='heatmap-graph')),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='gamma-graph')),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='vega-graph')),
             ])
         ], md=7),
     ])
@@ -222,6 +224,10 @@ app.layout = dbc.Container([
         Output('option-price', 'children'),
         Output('greeks-container', 'children'),
         Output('sensitivity-graph', 'figure'),
+        Output('delta-graph', 'figure'),
+        Output('gamma-graph', 'figure'),
+        Output('theta-graph', 'figure'),
+        Output('vega-graph', 'figure'),
         Output('heatmap-graph', 'figure'),
     ],
     [
@@ -253,20 +259,42 @@ def update_option_price(S, K, r, sigma, T, N, M, option_type, model_type, min_sp
         option_price = monte_carlo_option_pricing(S, K, r, T, sigma, M, N, option_type)
     
     greeks_output = None
+    delta_figure = go.Figure()
+    gamma_figure = go.Figure()
+    theta_figure = go.Figure()
+    vega_figure = go.Figure()
+
     if model_type == 'bs':
         delta = optionDelta(S, K, r, T, sigma, option_type)
         gamma = optionGamma(S, K, r, T, sigma)
         theta = optionTheta(S, K, r, T, sigma, option_type)
         vega = optionVega(S, K, r, T, sigma)
-        rho = optionRho(S, K, r, T, sigma, option_type)
         greeks_output = [
             html.H6(f"Delta: {delta:.4f}", className="card-subtitle"),
             html.H6(f"Gamma: {gamma:.4f}", className="card-subtitle"),
             html.H6(f"Theta: {theta:.4f}", className="card-subtitle"),
             html.H6(f"Vega: {vega:.4f}", className="card-subtitle"),
-            html.H6(f"Rho: {rho:.4f}", className="card-subtitle"),
         ]
-    
+        # Generate separate Delta, Gamma, Theta, and Vega graphs only for Black-Scholes
+        spot_prices = np.linspace(min_spot, max_spot, 100)
+        delta_figure = go.Figure(data=go.Scatter(x=spot_prices, y=[optionDelta(s, K, r, T, sigma, option_type) for s in spot_prices], mode='lines', name='Delta'))
+        delta_figure.update_layout(title='Delta vs Spot Price', xaxis_title='Spot Price', yaxis_title='Delta')
+
+        gamma_figure = go.Figure(data=go.Scatter(x=spot_prices, y=[optionGamma(s, K, r, T, sigma) for s in spot_prices], mode='lines', name='Gamma'))
+        gamma_figure.update_layout(title='Gamma vs Spot Price', xaxis_title='Spot Price', yaxis_title='Gamma')
+
+        theta_figure = go.Figure(data=go.Scatter(x=spot_prices, y=[optionTheta(s, K, r, T, sigma, option_type) for s in spot_prices], mode='lines', name='Theta'))
+        theta_figure.update_layout(title='Theta vs Spot Price', xaxis_title='Spot Price', yaxis_title='Theta')
+
+        vega_figure = go.Figure(data=go.Scatter(x=spot_prices, y=[optionVega(s, K, r, T, sigma) for s in spot_prices], mode='lines', name='Vega'))
+        vega_figure.update_layout(title='Vega vs Spot Price', xaxis_title='Spot Price', yaxis_title='Vega')
+    else:
+        # Empty graphs for other models
+        delta_figure.update_layout(title='Delta vs Spot Price (Not Available)', xaxis_title='Spot Price', yaxis_title='Delta')
+        gamma_figure.update_layout(title='Gamma vs Spot Price (Not Available)', xaxis_title='Spot Price', yaxis_title='Gamma')
+        theta_figure.update_layout(title='Theta vs Spot Price (Not Available)', xaxis_title='Spot Price', yaxis_title='Theta')
+        vega_figure.update_layout(title='Vega vs Spot Price (Not Available)', xaxis_title='Spot Price', yaxis_title='Vega')
+
     # Generate sensitivity graph
     spot_prices = np.linspace(min_spot, max_spot, 100)
     option_prices = [blackScholes(s, K, r, T, sigma, option_type) for s in spot_prices]
@@ -281,7 +309,7 @@ def update_option_price(S, K, r, sigma, T, N, M, option_type, model_type, min_sp
     heatmap_figure = go.Figure(data=go.Heatmap(z=heatmap_data, x=spot_range, y=vol_range*100, colorscale='Viridis'))
     heatmap_figure.update_layout(title='Option Price Heatmap', xaxis_title='Spot Price', yaxis_title='Volatility (%)')
 
-    return (f"₹{option_price:.2f}", greeks_output, sensitivity_figure, heatmap_figure)
+    return (f"₹{option_price:.2f}", greeks_output, sensitivity_figure, delta_figure, gamma_figure, theta_figure, vega_figure, heatmap_figure)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
