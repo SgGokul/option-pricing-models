@@ -95,7 +95,7 @@ app.layout = dbc.Container([
                     [   
                         "Created by :  ",
                         html.Img(src='https://img.icons8.com/color/48/000000/linkedin.png', style={'width': '20px', 'margin-right': '10px'}),
-                        "Gokul S G"
+                        "Gokul SG"
                     ], href='https://www.linkedin.com/in/sggokul/', target='_blank', className='text-decoration-none'
                 )
             ], className='text-left', style={'position': 'relative', 'margin-top': '20px'}),
@@ -179,7 +179,7 @@ app.layout = dbc.Container([
                 dbc.Col(dcc.Input(id='max-vol', value=30, type='number', step=0.01, className='form-control'), width=12),
             ]),
             dbc.Row([
-                dbc.Col(dcc.Graph(id='delta-graph')),
+                dbc.Col(dcc.Graph(id='vega-graph')),
             ]),
             dbc.Row([
                 dbc.Col(dcc.Graph(id='theta-graph')),
@@ -209,10 +209,10 @@ app.layout = dbc.Container([
                 dbc.Col(dcc.Graph(id='heatmap-graph')),
             ]),
             dbc.Row([
-                dbc.Col(dcc.Graph(id='gamma-graph')),
+                dbc.Col(dcc.Graph(id='delta-graph')),
             ]),
             dbc.Row([
-                dbc.Col(dcc.Graph(id='vega-graph')),
+                dbc.Col(dcc.Graph(id='gamma-graph')),
             ])
         ], md=7),
     ])
